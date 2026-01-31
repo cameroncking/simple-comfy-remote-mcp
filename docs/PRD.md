@@ -6,11 +6,11 @@ A minimal MCP (Model Context Protocol) server that exposes ComfyUI image generat
 
 ## Goals
 
-- Provide the simplest possible MCP interface for text-to-image generation
-- Support both fixed workflows and dynamic workflow injection
+- Provide simplest possible MCP interface for text-to-image generation
 - Serve generated images via public URLs for better client compatibility
 - Zero configuration complexity for end users
 - Stateless operation
+- Enforce sysadmin control over workflows via local file paths
 
 ## Non-Goals
 
@@ -43,8 +43,8 @@ All configuration via environment variables:
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `COMFYUI_URL` | Yes | Base URL of the ComfyUI instance | `http://localhost:8188` |
-| `COMFYUI_WORKFLOW_ID` | Yes | ID of the workflow to execute (or local path to JSON) | `abc123` or `./workflow.json` |
+| `COMFYUI_URL` | Yes | Base URL of ComfyUI instance | `http://localhost:8188` |
+| `COMFYUI_WORKFLOW_ID` | Yes | Local file path to ComfyUI workflow JSON file | `/path/to/workflow.json` |
 | `MCP_PORT` | No | Port for the MCP HTTP server | `3000` (default) |
 | `PUBLIC_URL` | No | Public URL for image access | `https://your-server.com` |
 | `COMFYUI_INPUT_NODE_ID` | No | Specific node ID for prompt injection | `6` |
@@ -74,10 +74,6 @@ Generates an image from a text prompt using ComfyUI and returns a URL to the gen
     "prompt": {
       "type": "string",
       "description": "Text description of the image to generate"
-    },
-    "workflow_json": {
-      "type": "string",
-      "description": "Optional ComfyUI workflow JSON (API format) to use. If not provided, uses the default workflow."
     }
   },
   "required": ["prompt"]
@@ -123,13 +119,9 @@ Returns the URL of the generated image as a text block.
 
 ### ComfyUI Integration Flow
 
-1. Receive `generate_image_url_from_prompt` tool call with prompt.
-2. Resolve workflow:
-    - If `workflow_json` is provided, use it.
-    - Else if `COMFYUI_WORKFLOW_ID` is a local file, read it.
-    - Else if `COMFYUI_WORKFLOW_ID` is "latest", fetch most recent from ComfyUI history.
-    - Else fetch specific history entry by ID.
-3. Inject the prompt into the workflow and randomize seeds in all nodes.
+  1. Receive `generate_image_url_from_prompt` tool call with prompt.
+  2. Load workflow from local file path specified by `WORKFLOW_PATH`.
+  3. Inject prompt into workflow and randomize seeds in all nodes.
 4. Queue the workflow via ComfyUI's `/prompt` API.
 5. Poll `/history/{prompt_id}` until execution completes.
 6. Retrieve the generated image from ComfyUI's `/view` endpoint.
@@ -150,7 +142,7 @@ Additionally, the server automatically finds any nodes with a `seed` input and r
 | Scenario | Behavior |
 |----------|----------|
 | ComfyUI unreachable | Return error: "ComfyUI server unavailable at {url}" |
-| Invalid workflow ID | Return error: "Workflow not found: {id}" |
+ | Invalid workflow file | Return error: "Workflow not found: {path}. Must be a local file path." |
 | Workflow execution fails | Return error: "Image generation failed: {comfy_error}" |
 | Timeout (>5 min) | Return error: "Image generation timed out" |
 | No image output | Return error: "Workflow did not produce an image output" |
@@ -189,10 +181,16 @@ simple-comfy-remote-mcp/
 {
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "ws": "^8.0.0",
-    "dotenv": "^16.0.0"
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3"
   }
 }
 ```
@@ -202,9 +200,9 @@ simple-comfy-remote-mcp/
 ### Starting the Server
 
 ```bash
-# Set required environment variables
+# Set the required environment variables
 export COMFYUI_URL=http://localhost:8188
-export COMFYUI_WORKFLOW_ID=latest
+export COMFYUI_WORKFLOW_ID=abc123-def456-ghi789-jkl012-mno345
 
 # Start the server
 npm start
@@ -212,14 +210,13 @@ npm start
 
 ### Connecting from MCP Clients
 
-Configure your MCP client to connect to `http://localhost:3000/mcp` using Streamable HTTP transport.
+Configure your MCP client to connect to `http://localhost:3000/mcp` using the Streamable HTTP transport.
 
 ## Future Considerations (Out of Scope)
 
-- Additional tools for workflow listing or model selection.
-- Configurable parameters (steps, CFG scale, etc.) via MCP tool arguments.
-- Batch generation.
-- Progress streaming during generation.
-- Image format options (JPEG, WebP).
-- Automatic cleanup of old images in the `public/images` directory.
-
+- Additional tools for workflow listing or model selection
+- Configurable parameters (steps, CFG scale, etc.) via MCP tool arguments
+- Batch generation
+- Progress streaming during generation
+- Image format options (JPEG, WebP)
+- Automatic cleanup of old images in the `public/images` directory

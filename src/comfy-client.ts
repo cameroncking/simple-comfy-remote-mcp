@@ -1,4 +1,3 @@
-import WebSocket from 'ws';
 import fs from 'fs';
 
 export class ComfyClient {
@@ -10,65 +9,19 @@ export class ComfyClient {
     this.wsUrl = this.baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
   }
 
-  async getWorkflow(workflowId: string): Promise<any> {
-    // 1. Try to load as a local file
-    if (fs.existsSync(workflowId)) {
+  async getWorkflow(workflowPath: string): Promise<any> {
+    // Load workflow from local file
+    if (fs.existsSync(workflowPath)) {
       try {
-        console.error(`Loading workflow from local file: ${workflowId}`);
-        const content = fs.readFileSync(workflowId, 'utf-8');
+        console.error(`Loading workflow from local file: ${workflowPath}`);
+        const content = fs.readFileSync(workflowPath, 'utf-8');
         return JSON.parse(content);
       } catch (e) {
-        console.error(`Error reading local workflow file: ${e}`);
+        throw new Error(`Error reading workflow file ${workflowPath}: ${e}`);
       }
     }
 
-    // 2. Explicitly handle 'latest'
-    if (workflowId === 'latest') {
-      return await this.getLatestWorkflow();
-    }
-
-    // 3. Try to fetch from history
-    const url = `${this.baseUrl}/history/${workflowId}`;
-    console.error(`Fetching workflow from history: ${url}`);
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        const history = await response.json();
-        if (history[workflowId]?.prompt) {
-          const promptData = history[workflowId].prompt;
-          // In some versions of history, it's [prompt_id, node_id, prompt_data]
-          return Array.isArray(promptData) ? promptData[2] : promptData;
-        }
-      }
-    } catch (e) {
-      console.error(`Error fetching history: ${e}`);
-    }
-
-    // 4. Fallback: try to get the most recent workflow from history
-    console.error(`Workflow ${workflowId} not found. Attempting to fetch most recent workflow from history.`);
-    return await this.getLatestWorkflow();
-  }
-
-  private async getLatestWorkflow(): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/history`);
-      if (response.ok) {
-        const history = await response.json();
-        const keys = Object.keys(history);
-        if (keys.length > 0) {
-          // Keys are usually prompt IDs, we want the one with the highest prompt number or latest timestamp
-          // ComfyUI history keys are prompt IDs (UUIDs), but they are returned in order?
-          // Actually, we should probably sort them or just take the last one.
-          const mostRecentId = keys[keys.length - 1];
-          console.error(`Using most recent workflow from history: ${mostRecentId}`);
-          const promptData = history[mostRecentId].prompt;
-          return Array.isArray(promptData) ? promptData[2] : promptData;
-        }
-      }
-    } catch (e) {
-      console.error(`Error fetching full history: ${e}`);
-    }
-    throw new Error(`Could not find any recent history.`);
+    throw new Error(`Workflow not found: ${workflowPath}`);
   }
 
   private injectPrompt(workflow: any, prompt: string): any {
@@ -76,7 +29,7 @@ export class ComfyClient {
     const inputNodeId = process.env.COMFYUI_INPUT_NODE_ID;
     const inputFieldName = process.env.COMFYUI_INPUT_FIELD_NAME || 'text';
 
-    console.error(`Injecting prompt into node ${inputNodeId || 'auto-detected'} field ${inputFieldName}`);
+    console.error(`Injecting prompt into node ${inputNodeId || 'Auto-detected'} field ${inputFieldName}`);
 
     let node;
     if (inputNodeId && modifiedWorkflow[inputNodeId]) {
@@ -144,7 +97,7 @@ export class ComfyClient {
           const history = await response.json();
           if (history[promptId]) {
             console.error(`Prompt ${promptId} finished`);
-            return 'done'; // We don't strictly need the node ID here as we'll find the output in history
+            return 'done'; // We don't strictly need to node ID here as we'll find the output in history
           }
         }
       } catch (e) {
@@ -207,7 +160,7 @@ export class ComfyClient {
     if (outputNodeId && outputs[outputNodeId]) {
       nodeOutput = outputs[outputNodeId];
     } else {
-      // Find first output with the specified field
+      // Find first output with specified field
       nodeOutput = Object.values(outputs).find((o: any) => o[outputFieldName] && o[outputFieldName].length > 0);
     }
 

@@ -8,6 +8,10 @@ dist/
 .env
 .env.local
 
+# Workflow files (environment-specific)
+workflow.json
+*.json
+
 # Generated images
 public/images/
 

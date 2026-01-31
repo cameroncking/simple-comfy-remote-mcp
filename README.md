@@ -49,10 +49,10 @@ Create a `.env` file or set the following environment variables:
 # Required: URL of your ComfyUI instance
 COMFYUI_URL=http://localhost:8188
 
-# Required: ID of the ComfyUI workflow to execute
-COMFYUI_WORKFLOW_ID=your-workflow-id-here
+# Required: Local file path to ComfyUI workflow JSON file
+WORKFLOW_PATH=./workflow.json
 
-# Optional: Port for the MCP HTTP server (default: 3000)
+# Optional: Port for MCP HTTP server (default: 3000)
 MCP_PORT=3000
 
 # Optional: Public URL for image downloads (default: http://localhost:3000)
@@ -97,7 +97,7 @@ cp .env.example .env
 2. Edit `.env` with your ComfyUI configuration:
 ```bash
 COMFYUI_URL=http://localhost:8188
-COMFYUI_WORKFLOW_ID=your-workflow-id-here
+WORKFLOW_PATH=./workflow.json
 MCP_PORT=3000
 PUBLIC_URL=http://localhost:3000
 ```
@@ -123,9 +123,10 @@ docker build -t comfy-mcp .
 docker run -d \
   -p 3000:3000 \
   -e COMFYUI_URL=http://host.docker.internal:8188 \
-  -e COMFYUI_WORKFLOW_ID=your-workflow-id-here \
+  -e WORKFLOW_PATH=/app/workflow.json \
   -e MCP_PORT=3000 \
   -e PUBLIC_URL=http://localhost:3000 \
+  -v $(pwd)/workflow.json:/app/workflow.json \
   -v $(pwd)/public/images:/app/public/images \
   --name comfy-mcp-server \
   comfy-mcp
@@ -208,8 +209,8 @@ In _~/.config/opencode/config.json_:
 | Error | Description |
 |-------|-------------|
 | `ComfyUI server unavailable` | Cannot connect to ComfyUI at the configured URL |
-| `Workflow not found` | The workflow ID doesn't exist in ComfyUI |
-| `No CLIPTextEncode node found` | The workflow doesn't have a prompt input node |
+| `Workflow not found` | The workflow file doesn't exist at the specified path |
+| `No CLIPTextEncode node found` | The workflow doesn't have a `CLIPTextEncode` class node |
 | `Image generation timed out` | Generation took longer than 5 minutes |
 | `Workflow did not produce an image output` | No image was generated |
 
@@ -217,14 +218,13 @@ In _~/.config/opencode/config.json_:
 
 ### Server fails to start
 
-- Verify that `COMFYUI_URL` and `COMFYUI_WORKFLOW_ID` are set
+- Verify that `COMFYUI_URL` and `WORKFLOW_PATH` are set
 - Ensure ComfyUI is running and accessible at the configured URL
 
 ### Tool returns "Workflow not found"
 
-- Check that the `COMFYUI_WORKFLOW_ID` matches an existing workflow in ComfyUI
-- In ComfyUI, check the URL to find your workflow ID (e.g., `/prompt/12345`
-where `12345` is the ID)
+- Check that the `WORKFLOW_PATH` points to a valid workflow JSON file
+- Ensure workflow JSON contains a `CLIPTextEncode` node and `SaveImage` node
 
 ### Tool returns "No CLIPTextEncode node found"
 

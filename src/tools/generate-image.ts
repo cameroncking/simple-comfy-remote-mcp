@@ -12,11 +12,7 @@ export const generateImageTool = {
     properties: {
       prompt: {
         type: 'string',
-        description: 'Text description of the image to generate'
-      },
-      workflow_json: {
-        type: 'string',
-        description: 'Optional ComfyUI workflow JSON (API format) to use. If not provided, uses the default workflow.'
+        description: 'Text description of image to generate'
       }
     },
     required: ['prompt']
@@ -25,11 +21,11 @@ export const generateImageTool = {
 
 export async function handleGenerateImage(
   comfyClient: ComfyClient,
-  defaultWorkflowId: string,
+  workflowPath: string,
   args: any,
   config?: { imagesDir: string; publicUrl: string }
 ) {
-  const { prompt, workflow_json } = args;
+  const { prompt } = args;
 
   if (!prompt || typeof prompt !== 'string') {
     return {
@@ -44,8 +40,7 @@ export async function handleGenerateImage(
   }
 
   try {
-    const workflowSource = workflow_json || defaultWorkflowId;
-    const base64Image = await comfyClient.generateImage(workflowSource, prompt);
+    const base64Image = await comfyClient.generateImage(workflowPath, prompt);
     let imageUrl = '';
 
     if (config) {

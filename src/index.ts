@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 
 const COMFYUI_URL = process.env.COMFYUI_URL;
-const COMFYUI_WORKFLOW_ID = process.env.COMFYUI_WORKFLOW_ID;
+const WORKFLOW_PATH = process.env.WORKFLOW_PATH || "./workflow.json";
 const MCP_PORT = parseInt(process.env.MCP_PORT || '3000', 10);
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${MCP_PORT}`;
 
@@ -28,11 +28,6 @@ if (!fs.existsSync(IMAGES_DIR)) {
 
 if (!COMFYUI_URL) {
   console.error('Error: COMFYUI_URL environment variable is required');
-  process.exit(1);
-}
-
-if (!COMFYUI_WORKFLOW_ID) {
-  console.error('Error: COMFYUI_WORKFLOW_ID environment variable is required');
   process.exit(1);
 }
 
@@ -61,7 +56,7 @@ function createServer() {
     const { name, arguments: args } = request.params;
 
     if (name === 'generate_image_url_from_prompt') {
-      return await handleGenerateImage(comfyClient, COMFYUI_WORKFLOW_ID!, args, {
+      return await handleGenerateImage(comfyClient, WORKFLOW_PATH, args, {
         imagesDir: IMAGES_DIR,
         publicUrl: PUBLIC_URL
       });
