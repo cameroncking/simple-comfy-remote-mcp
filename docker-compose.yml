@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  comfy-mcp:
+    build: .
+    container_name: comfy-mcp-server
+    ports:
+      - "${MCP_PORT:-3000}:3000"
+    environment:
+      - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      - COMFYUI_WORKFLOW_ID=${COMFYUI_WORKFLOW_ID}
+      - MCP_PORT=${MCP_PORT:-3000}
+      - PUBLIC_URL=${PUBLIC_URL:-http://localhost:3000}
+    volumes:
+      - ./public/images:/app/public/images
+    restart: unless-stopped
