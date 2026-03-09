@@ -1,5 +1,11 @@
 import fs from 'fs';
 
+export interface GeneratedImage {
+  base64Data: string;
+  filename: string;
+  mimeType: string;
+}
+
 export class ComfyClient {
   private baseUrl: string;
   private wsUrl: string;
@@ -122,7 +128,7 @@ export class ComfyClient {
     return Buffer.from(buffer).toString('base64');
   }
 
-  async generateImage(workflowSource: string | any, prompt: string): Promise<string> {
+  async generateImage(workflowSource: string | any, prompt: string): Promise<GeneratedImage> {
     let workflow;
     if (typeof workflowSource === 'string') {
       // Check if it looks like JSON
@@ -166,10 +172,38 @@ export class ComfyClient {
 
     if (nodeOutput?.[outputFieldName] && nodeOutput[outputFieldName].length > 0) {
       const image = nodeOutput[outputFieldName][0];
-      return await this.getImage(image.filename, image.subfolder || '', image.type || 'output');
+      const filename = image.filename;
+      const base64Data = await this.getImage(filename, image.subfolder || '', image.type || 'output');
+      return {
+        base64Data,
+        filename,
+        mimeType: this.getMimeType(filename)
+      };
     }
 
     throw new Error(`No image found in workflow outputs (field: ${outputFieldName})`);
+  }
+
+  private getMimeType(filename: string): string {
+    const extension = filename.split('.').pop()?.toLowerCase();
+
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'tif':
+      case 'tiff':
+        return 'image/tiff';
+      case 'png':
+      default:
+        return 'image/png';
+    }
   }
 
   private generateClientId(): string {

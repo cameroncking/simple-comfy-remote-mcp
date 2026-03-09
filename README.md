@@ -4,12 +4,13 @@
 [![npm version](https://badge.fury.io/js/simple-comfy-remote-mcp.svg)](https://www.npmjs.com/package/simple-comfy-remote-mcp)
 
 A minimal Model Context Protocol (MCP) server that exposes ComfyUI image
-generation as a single tool over HTTP.
+generation over HTTP.
 
 ## Overview
 
 This server provides a simple MCP interface for text-to-image generation using
-ComfyUI. It accepts a text prompt and returns a URL.
+ComfyUI. It can return either Open WebUI-compatible image content or a plain
+download URL, depending on the tool you call.
 
 ## Use Case
 
@@ -23,7 +24,8 @@ client-side updates.
 
 ## Features
 
-- Single `generate_image` tool
+- `generate_image` tool for Open WebUI-compatible image results
+- Legacy `generate_image_url_from_prompt` tool for URL-based clients
 - Simple prompt-based image generation
 - Streamable HTTP transport
 - Stateless operation
@@ -144,9 +146,43 @@ Endpoint: http://localhost:3000/mcp
 Transport: Streamable HTTP
 ```
 
-### Example: Using the Tool
+### Example: Using the Open WebUI Tool
 
-Once connected, you can call the `generate_image_url_from_prompt` tool:
+Once connected, you can call the `generate_image` tool:
+
+```json
+{
+  "name": "generate_image",
+  "arguments": {
+    "prompt": "A serene mountain landscape at sunset with a lake reflection"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Generated image successfully."
+    },
+    {
+      "type": "image",
+      "mimeType": "image/png",
+      "data": "<base64 image data>"
+    }
+  ]
+}
+```
+
+Open WebUI's MCP integration ingests the `type: "image"` content item and
+attaches the generated image to the chat.
+
+### Example: Using the Legacy URL Tool
+
+For clients that expect a URL, the original `generate_image_url_from_prompt`
+tool is still available:
 
 ```json
 {

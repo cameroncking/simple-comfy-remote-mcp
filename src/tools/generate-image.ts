@@ -1,28 +1,36 @@
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { ComfyClient } from '../comfy-client.js';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-export const generateImageTool = {
+const inputSchema = {
+  type: 'object',
+  properties: {
+    prompt: {
+      type: 'string',
+      description: 'Text description of image to generate'
+    }
+  },
+  required: ['prompt']
+};
+
+export const generateImageUrlTool = {
   name: 'generate_image_url_from_prompt',
   description: 'Generates an image from a text prompt and returns a download URL.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      prompt: {
-        type: 'string',
-        description: 'Text description of image to generate'
-      }
-    },
-    required: ['prompt']
-  }
+  inputSchema
+};
+
+export const imageGenerationTool = {
+  name: 'generate_image',
+  description: 'Generates an image from a text prompt and returns MCP image content for Open WebUI.',
+  inputSchema
 };
 
 export async function handleGenerateImage(
   comfyClient: ComfyClient,
   workflowPath: string,
   args: any,
+  mode: 'url' | 'openwebui',
   config?: { imagesDir: string; publicUrl: string }
 ) {
   const { prompt } = args;
@@ -40,14 +48,31 @@ export async function handleGenerateImage(
   }
 
   try {
-    const base64Image = await comfyClient.generateImage(workflowPath, prompt);
+    const generatedImage = await comfyClient.generateImage(workflowPath, prompt);
     let imageUrl = '';
 
-    if (config) {
-      const filename = `${randomUUID()}.png`;
+    if (config && mode === 'url') {
+      const extension = path.extname(generatedImage.filename) || '.png';
+      const filename = `${randomUUID()}${extension}`;
       const savedPath = path.join(config.imagesDir, filename);
-      fs.writeFileSync(savedPath, Buffer.from(base64Image, 'base64'));
+      fs.writeFileSync(savedPath, Buffer.from(generatedImage.base64Data, 'base64'));
       imageUrl = `${config.publicUrl}/images/${filename}`;
+    }
+
+    if (mode === 'openwebui') {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Generated image successfully.'
+          },
+          {
+            type: 'image',
+            mimeType: generatedImage.mimeType,
+            data: generatedImage.base64Data
+          }
+        ]
+      };
     }
 
     return {

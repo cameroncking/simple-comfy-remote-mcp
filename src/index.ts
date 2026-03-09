@@ -10,7 +10,11 @@ import {
 import express from 'express';
 import cors from 'cors';
 import { ComfyClient } from './comfy-client.js';
-import { generateImageTool, handleGenerateImage } from './tools/generate-image.js';
+import {
+  generateImageUrlTool,
+  handleGenerateImage,
+  imageGenerationTool
+} from './tools/generate-image.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,15 +52,22 @@ function createServer() {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: [generateImageTool]
+      tools: [imageGenerationTool, generateImageUrlTool]
     };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
+    if (name === 'generate_image') {
+      return await handleGenerateImage(comfyClient, WORKFLOW_PATH, args, 'openwebui', {
+        imagesDir: IMAGES_DIR,
+        publicUrl: PUBLIC_URL
+      });
+    }
+
     if (name === 'generate_image_url_from_prompt') {
-      return await handleGenerateImage(comfyClient, WORKFLOW_PATH, args, {
+      return await handleGenerateImage(comfyClient, WORKFLOW_PATH, args, 'url', {
         imagesDir: IMAGES_DIR,
         publicUrl: PUBLIC_URL
       });
@@ -113,4 +124,3 @@ main().catch((error) => {
   console.error('Server error:', error);
   process.exit(1);
 });
-
